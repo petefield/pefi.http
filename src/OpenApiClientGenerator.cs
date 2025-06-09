@@ -11,7 +11,6 @@ public class OpenApiClientGenerator : IIncrementalGenerator
 {
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
-        Debugger.Launch();
         // Find all classes with our attribute
         var provider = context.SyntaxProvider
             .CreateSyntaxProvider(
@@ -62,16 +61,6 @@ public class OpenApiClientGenerator : IIncrementalGenerator
             {
                 throw new Exception("No src was returned from client generator.");
             }
-
-            context.ReportDiagnostic(Diagnostic.Create(
-             new DiagnosticDescriptor(
-                 "OAC1001",
-                 "OpenAPI Client Generation INFO",
-                 src,
-                 "OpenApiClientGenerator",
-                 DiagnosticSeverity.Warning,
-                 true),
-             Location.None));
 
             context.AddSource($"{classCtx.Symbol.Name}.g.cs", SourceText.From(src!, Encoding.UTF8));
         }

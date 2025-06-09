@@ -8,7 +8,7 @@
 
     <Nullable>enable</Nullable>
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
-    <Version>1.0.11</Version>
+    <Version>1.0.26</Version>
   </PropertyGroup>
 
 
@@ -16,7 +16,10 @@
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" PrivateAssets="all" />
     <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="5.0.0-1.25277.114" PrivateAssets="all" />
     <PackageReference Include="Microsoft.OpenApi" Version="2.0.0-preview9" PrivateAssets="all" GeneratePathProperty="true" />
-    <PackageReference Include="System.Text.Json" Version="10.0.0-preview.5.25277.114" PrivateAssets="all" GeneratePathProperty="true"/>
+    <PackageReference Include="System.IO.Pipelines" Version="10.0.0-preview.5.25277.114" GeneratePathProperty="true"/>
+    <PackageReference Include="System.Memory" Version="4.6.3" PrivateAssets="all" GeneratePathProperty="true" />
+    <PackageReference Include="System.Text.Json" Version="10.0.0-preview.5.25277.114" PrivateAssets="all" GeneratePathProperty="true" />
+    <PackageReference Include="System.Threading.Tasks.Extensions" Version="4.6.3" GeneratePathProperty="true" />
   </ItemGroup>
 
   <ItemGroup>
@@ -31,6 +34,9 @@
 
     <None Include="$(PkgMicrosoft_OpenApi)\lib\netstandard2.0\*.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
     <None Include="$(PkgSystem_Text_Json)\lib\netstandard2.0\*.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+    <None Include="$(PkgSystem_Memory)\lib\netstandard2.0\*.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+    <None Include="$(PkgSystem_Threading_Tasks_Extensions)\lib\netstandard2.0\*.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+    <None Include="$(PkgSystem_IO_Pipelines)\lib\netstandard2.0\*.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
 
   </ItemGroup>
 

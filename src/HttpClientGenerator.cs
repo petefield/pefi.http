@@ -16,16 +16,18 @@ namespace pefi.http
             return clientSource;
         }
 
-        private static async Task<OpenApiDocument> ParseOpenApiDocument( string sourceUrl)
+        private static async Task<OpenApiDocument> ParseOpenApiDocument(string sourceUrl)
         {
             try
             {
                 var openApiDocumentResult = await OpenApiDocument.LoadAsync(sourceUrl);
+
+
                 return openApiDocumentResult.Document;
             }
             catch (Exception ex)
             {
-                throw new InvalidOperationException($"Failed to parse OpenAPI content from {sourceUrl} : {ex.Message} {ex.InnerException.Message}", ex);
+                throw new InvalidOperationException($"Failed to parse OpenAPI content from {sourceUrl} : {ex.Message} {ex.InnerException?.Message ?? ""}", ex);
             }
         }
 
@@ -109,6 +111,18 @@ namespace pefi.http
             sb.AppendLine();
         }
 
+        private static string MapOperationType(OperationType ot) => ot switch
+        {
+            OperationType.Get => "Get",
+            OperationType.Patch => "Patch",
+            OperationType.Put => "GetPut",
+            OperationType.Post => "Post",
+            OperationType.Delete => "Delete",
+            OperationType.Head => "Head",
+            OperationType.Trace => "Trace",
+            _ => throw new ArgumentOutOfRangeException(nameof(ot), $"Not expected operationType value: {ot}"),
+        };
+
         private static void GenerateApiMethod(StringBuilder sb, OperationType httpMethod, string path, OpenApiOperation operation, OpenApiDocument openApiDoc)
         {
             var methodName = SanitizeIdentifier(operation.OperationId ?? $"{httpMethod}{SanitizeIdentifier(path)}");
@@ -118,11 +132,17 @@ namespace pefi.http
             var bodyParameter = hasBody ? "body" : null;
 
             // Method signature
-            sb.AppendLine($"        public async Task<{returnType}> {methodName}Async(");
+
+            if (string.IsNullOrEmpty(returnType))
+                sb.AppendLine($"        public async Task {methodName}Async(");
+            else
+                sb.AppendLine($"        public async Task<{returnType}> {methodName}Async(");
 
             var parameterList = GetParameterList(parameters, bodyParameter, operation);
+
             if (! string.IsNullOrEmpty(parameterList))
                 sb.AppendLine($"            {parameterList},");
+
             sb.AppendLine($"            CancellationToken cancellationToken = default)");
             sb.AppendLine("        {");
 
@@ -134,7 +154,7 @@ namespace pefi.http
             }
 
             // HTTP request
-            sb.AppendLine($"            var request = new HttpRequestMessage(HttpMethod.{httpMethod.ToString().ToUpper()}, $\"{requestPath}\");");
+            sb.AppendLine($"            var request = new HttpRequestMessage(HttpMethod.{MapOperationType(httpMethod)}, $\"{requestPath}\");");
 
             // Add query parameters
             var queryParams = parameters.Where(p => p.In == ParameterLocation.Query).ToList();
@@ -174,9 +194,9 @@ namespace pefi.http
             sb.AppendLine("            response.EnsureSuccessStatusCode();");
 
             // Handle response
-            if (returnType != "Task")
+            if (!string.IsNullOrEmpty( returnType))
             {
-                sb.AppendLine($"            return await JsonSerializer.DeserializeAsync<{returnType.Replace("Task<", "").Replace(">", "")}>(");
+                sb.AppendLine($"            return await JsonSerializer.DeserializeAsync<{returnType}>(");
                 sb.AppendLine("                await response.Content.ReadAsStreamAsync(cancellationToken),");
                 sb.AppendLine("                _jsonOptions,");
                 sb.AppendLine("                cancellationToken);");
@@ -227,10 +247,10 @@ namespace pefi.http
                     response.Content.TryGetValue("application/json", out var mediaType))
                 {
                     if (mediaType.Schema is not null)
-                        return $"Task<{GetCSharpTypeName(mediaType.Schema)}>";
+                        return $"{GetCSharpTypeName(mediaType.Schema)}";
                 }
             }
-            return "Task";
+            return string.Empty;
         }
 
         private static List<IOpenApiParameter> GetParameters(OpenApiOperation operation)
