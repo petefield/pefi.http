@@ -1,0 +1,48 @@
+name: Build and Publish NuGet
+
+on:
+  push:
+    branches:
+      - main
+      
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+
+    steps:
+    - name: Checkout source code
+      uses: actions/checkout@v3
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Build solution
+      run: dotnet build --configuration Release --no-restore
+
+    - name: Generate version number
+      id: versioning
+      run: |
+        VERSION="1.0.0-ci-$(date +%Y%m%d).${{ github.run_number }}"
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+    - name: Pack NuGet packages
+      run: dotnet pack --configuration Release --no-build --output ./nupkgs /p:PackageVersion=${{ env.VERSION }}
+
+    - name: Publish to GitHub Packages
+      run: |
+        dotnet nuget push "./nupkgs/*.nupkg" \
+          --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
+          --api-key "${{ secrets.GITHUB_TOKEN }}"
+      
