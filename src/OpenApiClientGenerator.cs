@@ -2,8 +2,6 @@
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 using System.Collections.Immutable;
-using System.Diagnostics;
-using System.Reflection.Metadata;
 using System.Text;
 
 namespace pefi.http;
@@ -23,7 +21,6 @@ public class OpenApiClientGenerator : IIncrementalGenerator
 
 
         var specifications = context.AdditionalTextsProvider
-                                .Where(text => text.Path.EndsWith("openapi.json",StringComparison.OrdinalIgnoreCase))
                                 .Select((text, token) => new FileDeets( text.Path, text.GetText(token)?.ToString() ?? "" ))
                                 .Collect<FileDeets>();
 
@@ -33,7 +30,7 @@ public class OpenApiClientGenerator : IIncrementalGenerator
 
     private class FileDeets(string path, string contents)
     {
-        public string Path { get; } = path;
+        public string FileName { get; } = Path.GetFileName(path);
         public string Contents { get; } = contents;
     };
 
@@ -68,7 +65,7 @@ public class OpenApiClientGenerator : IIncrementalGenerator
             var src = await ClientGenerator.Execute(
                 nameSpace: cdt.Symbol.ContainingNamespace.ToDisplayString(),
                 className: cdt.Symbol.Name, 
-                sourceUrl: files.Single(x => x.Path == cdt.SpecUrl).Contents,
+                sourceUrl: files.Single(x => x.FileName == cdt.SpecUrl).Contents,
                 context.CancellationToken);
 
             if (string.IsNullOrEmpty(src)) 
