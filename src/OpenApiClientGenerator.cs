@@ -1,7 +1,9 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
+using System.Collections.Immutable;
 using System.Diagnostics;
+using System.Reflection.Metadata;
 using System.Text;
 
 namespace pefi.http;
@@ -18,10 +20,22 @@ public class OpenApiClientGenerator : IIncrementalGenerator
                 transform: static (ctx, _) => GetClassSymbolForSourceGen(ctx))
             .Where(static m => m is not null);
 
+
+
+        var specifications = context.AdditionalTextsProvider
+                                .Where(text => text.Path.EndsWith("openapi.json",StringComparison.OrdinalIgnoreCase))
+                                .Select((text, token) => new FileDeets( text.Path, text.GetText(token)?.ToString() ?? "" ))
+                                .Collect<FileDeets>();
+
         // Generate the source
-        context.RegisterSourceOutput(provider,
-            static (spc, source) => Execute(source!, spc));
+        context.RegisterSourceOutput(provider.Combine(specifications), Execute);
     }
+
+    private class FileDeets(string path, string contents)
+    {
+        public string Path { get; } = path;
+        public string Contents { get; } = contents;
+    };
 
     private static ClassDeclarationContext? GetClassSymbolForSourceGen(GeneratorSyntaxContext context)
     {
@@ -45,16 +59,16 @@ public class OpenApiClientGenerator : IIncrementalGenerator
         return null;
     }
 
-    private static async void Execute(
-        ClassDeclarationContext classCtx,
-        SourceProductionContext context)
+    private static async void Execute(SourceProductionContext context, (ClassDeclarationContext, ImmutableArray<FileDeets>) args)
     {
         try
         {
+            var (cdt, files) = args;
+
             var src = await ClientGenerator.Execute(
-                nameSpace: classCtx.Symbol.ContainingNamespace.ToDisplayString(),
-                className: classCtx.Symbol.Name, 
-                sourceUrl: classCtx.SpecUrl,
+                nameSpace: cdt.Symbol.ContainingNamespace.ToDisplayString(),
+                className: cdt.Symbol.Name, 
+                sourceUrl: files.Single(x => x.Path == cdt.SpecUrl).Contents,
                 context.CancellationToken);
 
             if (string.IsNullOrEmpty(src)) 
@@ -62,7 +76,7 @@ public class OpenApiClientGenerator : IIncrementalGenerator
                 throw new Exception("No src was returned from client generator.");
             }
 
-            context.AddSource($"{classCtx.Symbol.Name}.g.cs", SourceText.From(src!, Encoding.UTF8));
+            context.AddSource($"{cdt.Symbol.Name}.g.cs", SourceText.From(src!, Encoding.UTF8));
         }
         catch (Exception ex)
         {
@@ -70,7 +84,7 @@ public class OpenApiClientGenerator : IIncrementalGenerator
                 new DiagnosticDescriptor(
                     "OAC1000",
                     "OpenAPI Client Generation Error",
-                    $"Error generating client from {classCtx.SpecUrl}: {ex.Message}",
+                    $"Error generating client from ",
                     "OpenApiClientGenerator",
                     DiagnosticSeverity.Warning,
                     true),

@@ -20,7 +20,7 @@ namespace pefi.http
         {
             try
             {
-                var openApiDocumentResult = await OpenApiDocument.LoadAsync(sourceUrl);
+                var openApiDocumentResult = OpenApiDocument.Parse(sourceUrl);
 
 
                 return openApiDocumentResult.Document;
