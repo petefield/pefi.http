@@ -153,7 +153,6 @@ namespace pefi.http
             }
 
             // HTTP request
-            sb.AppendLine($"            var request = new HttpRequestMessage(HttpMethod.{MapOperationType(httpMethod)}, $\"{requestPath}\");");
 
             // Add query parameters
             var queryParams = parameters.Where(p => p.In == ParameterLocation.Query).ToList();
@@ -169,8 +168,13 @@ namespace pefi.http
                     sb.AppendLine($"                queryBuilder.Append($\"{param.Name}={{Uri.EscapeDataString({paramName}.ToString())}}\");");
                     sb.AppendLine("            }");
                 }
-                sb.AppendLine("            request.RequestUri = new Uri(request.RequestUri.OriginalString + queryBuilder.ToString());");
             }
+
+            sb.AppendLine($"           var url = {requestPath};");
+            sb.AppendLine("            var q = queryBuilder.ToString();");
+
+            sb.AppendLine($"            var request = new HttpRequestMessage(HttpMethod.{MapOperationType(httpMethod)}, $$\"{{url}}{{q}}\");");
+
 
             // Add body
             if (hasBody)
@@ -278,7 +282,6 @@ namespace pefi.http
                 {
                     paramType = param.Required ? paramType: $"{paramType}?";
                 }
-
           
                 paramList.Add($"{paramType} {paramName}{defaultValue}");
             }
