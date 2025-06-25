@@ -273,7 +273,7 @@ namespace pefi.http
                 var paramName = SanitizeParameterName(param.Name);
                 var paramType = GetCSharpTypeName(param.Schema);
                 var defaultValue = param.Required ? "" : " = null";
-                paramType = param.Required && !paramType.EndsWith("?") 
+                paramType = param.Required || paramType.EndsWith("?") 
                     ? paramType 
                     : $"{paramType}?";
                 paramList.Add($"{paramType} {paramName}{defaultValue}");
