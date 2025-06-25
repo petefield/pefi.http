@@ -74,6 +74,18 @@ public class OpenApiClientGenerator : IIncrementalGenerator
             }
 
             context.AddSource($"{cdt.Symbol.Name}.g.cs", SourceText.From(src!, Encoding.UTF8));
+
+            context.ReportDiagnostic(Diagnostic.Create(
+               new DiagnosticDescriptor(
+                   "OAC1000",
+                   "OpenAPI Client Generation Succeeded",
+                   $"Error generating client {cdt.Symbol.Name} from {cdt.SpecUrl}",
+                   "OpenApiClientGenerator",
+                   DiagnosticSeverity.Info,
+                   true),
+               Location.None));
+
+
         }
         catch (Exception ex)
         {
