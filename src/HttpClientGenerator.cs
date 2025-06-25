@@ -170,10 +170,10 @@ namespace pefi.http
                 }
             }
 
-            sb.AppendLine($"           var url = {requestPath};");
+            sb.AppendLine($"           var url = \"{requestPath}\";");
             sb.AppendLine("            var q = queryBuilder.ToString();");
 
-            sb.AppendLine($"            var request = new HttpRequestMessage(HttpMethod.{MapOperationType(httpMethod)}, $$\"{{url}}{{q}}\");");
+            sb.AppendLine($"            var request = new HttpRequestMessage(HttpMethod.{MapOperationType(httpMethod)}, $\"{{url}}{{q}}\");");
 
 
             // Add body
