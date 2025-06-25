@@ -2,6 +2,7 @@
 using Microsoft.OpenApi.Models;
 using Microsoft.OpenApi.Models.Interfaces;
 using Microsoft.OpenApi.Models.References;
+using System;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -172,7 +173,7 @@ namespace pefi.http
             }
 
 
-            sb.AppendLine($"           var url = \"{requestPath}\";");
+            sb.AppendLine($"           var url = \"{(requestPath.StartsWith("/") ? requestPath.TrimStart('/') : requestPath) }\";");
             sb.AppendLine("            var q = queryBuilder.ToString();");
 
             sb.AppendLine($"            var request = new HttpRequestMessage(HttpMethod.{MapOperationType(httpMethod)}, $\"{{url}}{{q}}\");");
