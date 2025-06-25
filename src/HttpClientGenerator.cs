@@ -156,9 +156,10 @@ namespace pefi.http
 
             // Add query parameters
             var queryParams = parameters.Where(p => p.In == ParameterLocation.Query).ToList();
+            sb.AppendLine("            var queryBuilder = new System.Text.StringBuilder();");
+
             if (queryParams.Any())
             {
-                sb.AppendLine("            var queryBuilder = new System.Text.StringBuilder();");
                 foreach (var param in queryParams)
                 {
                     var paramName = SanitizeParameterName(param.Name);
@@ -169,6 +170,7 @@ namespace pefi.http
                     sb.AppendLine("            }");
                 }
             }
+
 
             sb.AppendLine($"           var url = \"{requestPath}\";");
             sb.AppendLine("            var q = queryBuilder.ToString();");
