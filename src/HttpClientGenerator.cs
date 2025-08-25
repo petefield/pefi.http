@@ -173,7 +173,7 @@ namespace pefi.http
             }
 
 
-            sb.AppendLine($"           var url = \"{(requestPath.StartsWith("/") ? requestPath.TrimStart('/') : requestPath) }\";");
+            sb.AppendLine($"            var url = \"{(requestPath.StartsWith("/") ? requestPath.TrimStart('/') : requestPath) }\";");
             sb.AppendLine("            var q = queryBuilder.ToString();");
 
             sb.AppendLine($"            var request = new HttpRequestMessage(HttpMethod.{MapOperationType(httpMethod)}, $\"{{url}}{{q}}\");");
