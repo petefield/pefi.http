@@ -1,16 +1,16 @@
 {
   "openapi": "3.0.1",
   "info": {
-    "title": "pefi.servicemanager",
+    "title": "Contact.ConfigManager.API",
     "version": "1.0"
   },
   "paths": {
-    "/services": {
+    "/configs": {
       "get": {
         "tags": [
-          "pefi.servicemanager"
+          "Contact.ConfigManager.API"
         ],
-        "operationId": "Get All Services",
+        "operationId": "Get All Configs",
         "responses": {
           "200": {
             "description": "OK",
@@ -19,7 +19,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/GetServiceResponse"
+                    "$ref": "#/components/schemas/SelfServeConfigurationModel"
                   }
                 }
               }
@@ -29,28 +29,57 @@
       },
       "post": {
         "tags": [
-          "pefi.servicemanager"
+          "Contact.ConfigManager.API"
         ],
-        "operationId": "Create Service",
+        "operationId": "CreateConfig",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateServiceRequest"
+                "$ref": "#/components/schemas/SelfServeConfigurationModel"
               }
             }
           },
           "required": true
         },
         "responses": {
-          "201": {
-            "description": "Created",
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/WeatherForecast": {
+      "get": {
+        "tags": [
+          "WeatherForecast"
+        ],
+        "operationId": "GetWeatherForecast",
+        "responses": {
+          "200": {
+            "description": "OK",
             "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WeatherForecast"
+                  }
+                }
+              },
               "application/json": {
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/CreateServiceResponse"
+                    "$ref": "#/components/schemas/WeatherForecast"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WeatherForecast"
                   }
                 }
               }
@@ -58,133 +87,231 @@
           }
         }
       }
-    },
-    "/services/{serviceName}": {
-      "get": {
-        "tags": [
-          "pefi.servicemanager"
-        ],
-        "operationId": "Get Service By Name",
-        "parameters": [
-          {
-            "name": "serviceName",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GetServiceResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "pefi.servicemanager"
-        ],
-        "operationId": "Delete Service",
-        "parameters": [
-          {
-            "name": "serviceName",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "No Content"
-          }
-        }
-      }
     }
   },
   "components": {
     "schemas": {
-      "CreateServiceRequest": {
+      "ConditionConfiguration": {
         "type": "object",
         "properties": {
-          "serviceName": {
+          "expression": {
             "type": "string",
             "nullable": true
           },
-          "hostName": {
+          "description": {
             "type": "string",
             "nullable": true
           },
-          "containerPortNumber": {
+          "sendIfDeceased": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Connector": {
+        "enum": [
+          "Undefined",
+          "Ela",
+          "Salesforce",
+          "IMI",
+          "Paragon"
+        ],
+        "type": "string"
+      },
+      "FeatureFlagConfiguration": {
+        "type": "object",
+        "properties": {
+          "tenant": {
             "type": "string",
             "nullable": true
           },
-          "hostPortNumber": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "environments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FeatureFlagEnvironment"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "FeatureFlagEnvironment": {
+        "enum": [
+          "Undefined",
+          "Dev",
+          "Uat",
+          "Prod",
+          "All"
+        ],
+        "type": "string"
+      },
+      "FieldMappingConfiguration": {
+        "type": "object",
+        "properties": {
+          "inputField": {
             "type": "string",
             "nullable": true
           },
-          "dockerImageUrl": {
+          "outputField": {
+            "type": "string",
+            "nullable": true
+          },
+          "excludeIfEmpty": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "InputDataConfiguration": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "type": {
+            "$ref": "#/components/schemas/InputDataType"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "maxLength": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "path": {
             "type": "string",
             "nullable": true
           }
         },
         "additionalProperties": false
       },
-      "CreateServiceResponse": {
+      "InputDataType": {
+        "enum": [
+          "Undefined",
+          "String",
+          "Number",
+          "Object",
+          "Array"
+        ],
+        "type": "string"
+      },
+      "OperationUnit": {
+        "enum": [
+          "Undefined",
+          "Complaints",
+          "Fraud",
+          "Servicing",
+          "Atc",
+          "Ams",
+          "OpsComms1",
+          "OpsComms2",
+          "OpsComms3",
+          "Collections",
+          "BulkLetters"
+        ],
+        "type": "string"
+      },
+      "SelfServeConfigurationModel": {
         "type": "object",
         "properties": {
-          "serviceName": {
+          "configId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "contactType": {
             "type": "string",
             "nullable": true
           },
-          "hostName": {
-            "type": "string",
+          "operationUnit": {
+            "$ref": "#/components/schemas/OperationUnit"
+          },
+          "connector": {
+            "$ref": "#/components/schemas/Connector"
+          },
+          "channel": {
+            "$ref": "#/components/schemas/SendCommunicationChannel"
+          },
+          "outputType": {
+            "$ref": "#/components/schemas/SendCommunicationOutputType"
+          },
+          "inputData": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InputDataConfiguration"
+            },
             "nullable": true
           },
-          "containerPortNumber": {
-            "type": "string",
+          "mapping": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FieldMappingConfiguration"
+            },
             "nullable": true
           },
-          "hostPortNumber": {
-            "type": "string",
+          "condition": {
+            "$ref": "#/components/schemas/ConditionConfiguration"
+          },
+          "xmlMapping": {
             "nullable": true
           },
-          "dockerImageUrl": {
-            "type": "string",
+          "featureFlags": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FeatureFlagConfiguration"
+            },
             "nullable": true
+          },
+          "id": {
+            "type": "string",
+            "nullable": true,
+            "readOnly": true
           }
         },
         "additionalProperties": false
       },
-      "GetServiceResponse": {
+      "SendCommunicationChannel": {
+        "enum": [
+          "Undefined",
+          "Email",
+          "Sms",
+          "Phone",
+          "Letter",
+          "DigitalLetter",
+          "Auto"
+        ],
+        "type": "string"
+      },
+      "SendCommunicationOutputType": {
+        "enum": [
+          "Undefined",
+          "Csv",
+          "Json",
+          "Xml"
+        ],
+        "type": "string"
+      },
+      "WeatherForecast": {
         "type": "object",
         "properties": {
-          "serviceName": {
+          "date": {
             "type": "string",
-            "nullable": true
+            "format": "date"
           },
-          "hostName": {
-            "type": "string",
-            "nullable": true
+          "temperatureC": {
+            "type": "integer",
+            "format": "int32"
           },
-          "containerPortNumber": {
-            "type": "string",
-            "nullable": true
+          "temperatureF": {
+            "type": "integer",
+            "format": "int32",
+            "readOnly": true
           },
-          "hostPortNumber": {
-            "type": "string",
-            "nullable": true
-          },
-          "dockerImageUrl": {
+          "summary": {
             "type": "string",
             "nullable": true
           }

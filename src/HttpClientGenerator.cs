@@ -90,6 +90,10 @@ namespace pefi.http
         private static void GenerateModel(StringBuilder sb, string name, IOpenApiSchema schema)
         {
             var typeName = SanitizeIdentifier(name);
+            
+            
+            
+            
             sb.AppendLine($"    public class {typeName}");
             sb.AppendLine("    {");
 
@@ -215,6 +219,13 @@ namespace pefi.http
         private static string GetCSharpTypeName(IOpenApiSchema schema)
         {
             if (schema is OpenApiSchemaReference schemaReference) {
+
+                if (schemaReference.Target.Type == JsonSchemaType.String)
+                {
+                    return "string";
+                }
+
+
                 return schemaReference.Reference.Id;
             }
 

@@ -6,8 +6,11 @@ namespace pefi.http.OpenApiClientGenerator.Tests
         [Fact]
         public async Task Test1()
         {
-            var url = "http://192.168.0.5:5550/swagger/v1/swagger.json";
-            var sourceCode = await  ClientGenerator.Execute("testNameSpace", "foo", url, CancellationToken.None);
+            var url = "C:\\source\\personal\\pefi.http\\test\\pefi.http.OpenApiClientGenerator.Tests\\client_config\\service_mgr_openapi.json";
+
+            var s = System.IO.File.ReadAllText(url);
+            
+            var sourceCode = await  ClientGenerator.Execute("testNameSpace", "foo", s, CancellationToken.None);
             Assert.NotNull(sourceCode);
             Assert.NotEmpty(sourceCode);    
         }
