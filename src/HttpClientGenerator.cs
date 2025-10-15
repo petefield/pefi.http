@@ -62,7 +62,7 @@ namespace pefi.http
             sb.AppendLine($"    public partial class {className}");
             sb.AppendLine("    {");
             sb.AppendLine("        private readonly HttpClient _httpClient;");
-            sb.AppendLine("        public JsonSerializerOptions _jsonOptions {get; set; };");
+            sb.AppendLine("        public JsonSerializerOptions _jsonOptions {get; set; }");
             sb.AppendLine();
 
             sb.AppendLine($"        public {className}(HttpClient httpClient)");
