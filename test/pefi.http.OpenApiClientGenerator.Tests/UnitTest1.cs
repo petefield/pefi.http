@@ -13,6 +13,7 @@ namespace pefi.http.OpenApiClientGenerator.Tests
             var sourceCode = await  ClientGenerator.Execute("testNameSpace", "foo", s, CancellationToken.None);
             Assert.NotNull(sourceCode);
             Assert.NotEmpty(sourceCode);    
+            
         }
     }
 }
