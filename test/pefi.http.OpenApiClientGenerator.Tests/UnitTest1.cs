@@ -6,11 +6,11 @@ namespace pefi.http.OpenApiClientGenerator.Tests
         [Fact]
         public async Task Test1()
         {
-            var url = "C:\\source\\personal\\pefi.http\\test\\pefi.http.OpenApiClientGenerator.Tests\\client_config\\service_mgr_openapi.json";
+            var specPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "client_config", "service_mgr_openapi.json");
 
-            var s = System.IO.File.ReadAllText(url);
+            var s = System.IO.File.ReadAllText(specPath);
             
-            var sourceCode = await  ClientGenerator.Execute("testNameSpace", "foo", s, CancellationToken.None);
+            var sourceCode = await ClientGenerator.Execute("testNameSpace", "foo", s, CancellationToken.None);
             Assert.NotNull(sourceCode);
             Assert.NotEmpty(sourceCode);
         }
