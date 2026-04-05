@@ -33,22 +33,25 @@ jobs:
       with:
         dotnet-version: '8.0.x'
 
+    - name: Setup GitVersion
+      uses: gittools/actions/gitversion/setup@v4.4.2
+      with:
+        versionSpec: '6.x'
+
+    - name: Determine version with GitVersion
+      id: gitversion
+      uses: gittools/actions/gitversion/execute@v4.4.2
+
+    - name: Set version environment variables
+      run: |
+        echo "VERSION=${{ steps.gitversion.outputs.semVer }}" >> $GITHUB_ENV
+        echo "TAG=v${{ steps.gitversion.outputs.semVer }}" >> $GITHUB_ENV
+
     - name: Restore dependencies
       run: dotnet restore
 
     - name: Build solution
       run: dotnet build --configuration Release --no-restore
-
-    - name: Get version from project file
-      id: versioning
-      run: |
-        VERSION=$(dotnet msbuild src/pefi.http.csproj -getProperty:Version -nologo)
-        if [ -z "$VERSION" ]; then
-          echo "Error: Version property not found in project file"
-          exit 1
-        fi
-        echo "VERSION=$VERSION" >> $GITHUB_ENV
-        echo "TAG=v$VERSION" >> $GITHUB_ENV
 
     - name: Pack NuGet packages
       run: dotnet pack --configuration Release --no-build --output ./nupkgs /p:PackageVersion=${{ env.VERSION }}
