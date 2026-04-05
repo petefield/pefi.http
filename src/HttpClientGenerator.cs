@@ -1,4 +1,4 @@
-﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis;
 using Microsoft.OpenApi.Models;
 using Microsoft.OpenApi.Models.Interfaces;
 using Microsoft.OpenApi.Models.References;
@@ -51,11 +51,15 @@ namespace pefi.http
             sb.AppendLine("{");
 
 
-            if (openApiDoc.Components?.Schemas.Any() ?? false)
+            var schemas = openApiDoc.Components?.Schemas;
+            if (schemas?.Any() ?? false)
             {
-                foreach (var schema in openApiDoc.Components?.Schemas)
+                foreach (var schema in schemas)
                 {
-                    GenerateModel(sb, schema.Key, schema.Value);
+                    if (schema.Value.Enum?.Count > 0)
+                        GenerateEnum(sb, schema.Key, schema.Value);
+                    else
+                        GenerateModel(sb, schema.Key, schema.Value);
                 }
             }
 
@@ -92,10 +96,7 @@ namespace pefi.http
         private static void GenerateModel(StringBuilder sb, string name, IOpenApiSchema schema)
         {
             var typeName = SanitizeIdentifier(name);
-            
-            
-            
-            
+
             sb.AppendLine($"    public class {typeName}");
             sb.AppendLine("    {");
 
@@ -104,13 +105,23 @@ namespace pefi.http
                 var propertyName = SanitizeIdentifier(property.Key);
                 var propertyType = GetCSharpTypeName(property.Value);
                 sb.AppendLine($"        public {propertyType} {propertyName} {{ get; set; }}");
+            }
 
-                // Handle default values
-                if (property.Value.Default != null)
-                {
-                    var defaultValue = GetDefaultValue(property.Value);
-                    sb.AppendLine($"            = {defaultValue};");
-                }
+            sb.AppendLine("    }");
+            sb.AppendLine();
+        }
+
+        private static void GenerateEnum(StringBuilder sb, string name, IOpenApiSchema schema)
+        {
+            var typeName = SanitizeIdentifier(name);
+
+            sb.AppendLine($"    public enum {typeName}");
+            sb.AppendLine("    {");
+
+            foreach (var enumValue in schema.Enum)
+            {
+                var memberName = SanitizeIdentifier(enumValue?.ToString() ?? "Unknown");
+                sb.AppendLine($"        {memberName},");
             }
 
             sb.AppendLine("    }");
@@ -278,15 +289,15 @@ namespace pefi.http
 
         private static string GetCSharpTypeName(IOpenApiSchema schema)
         {
-            if (schema is OpenApiSchemaReference schemaReference) {
+            if (schema is OpenApiSchemaReference schemaReference)
+            {
+                if (schemaReference.Target.Enum?.Count > 0)
+                    return SanitizeIdentifier(schemaReference.Reference.Id);
 
                 if (schemaReference.Target.Type == JsonSchemaType.String)
-                {
                     return "string";
-                }
 
-
-                return schemaReference.Reference.Id;
+                return SanitizeIdentifier(schemaReference.Reference.Id);
             }
 
             var twd = schema.Type & ~JsonSchemaType.Null;
@@ -311,7 +322,7 @@ namespace pefi.http
                 _ => "object"
             };
 
-            return schema.Type.Value.HasFlag(JsonSchemaType.Null)
+            return schema.Type.HasValue && schema.Type.Value.HasFlag(JsonSchemaType.Null)
                 ? $"{t}?"
                 : t;
         }
@@ -346,7 +357,10 @@ namespace pefi.http
         {
             var paramList = new List<string>();
 
-            foreach (var param in parameters)
+            // Required parameters must come before optional ones (C# constraint)
+            var ordered = parameters.OrderByDescending(p => p.Required).ThenBy(p => p.Name);
+
+            foreach (var param in ordered)
             {
                 var paramName = SanitizeParameterName(param.Name);
                 var paramType = GetCSharpTypeName(param.Schema);
@@ -354,17 +368,20 @@ namespace pefi.http
 
                 if (!paramType.EndsWith("?"))
                 {
-                    paramType = param.Required ? paramType: $"{paramType}?";
+                    paramType = param.Required ? paramType : $"{paramType}?";
                 }
-          
+
                 paramList.Add($"{paramType} {paramName}{defaultValue}");
             }
 
             if (bodyParameter != null)
             {
-                var requestSchema = operation.RequestBody.Content["application/json"].Schema;
-                var bodyType = GetCSharpTypeName(requestSchema);
-                paramList.Add($"{bodyType} {bodyParameter}");
+                var requestSchema = operation.RequestBody?.Content["application/json"].Schema;
+                if (requestSchema is not null)
+                {
+                    var bodyType = GetCSharpTypeName(requestSchema);
+                    paramList.Add($"{bodyType} {bodyParameter}");
+                }
             }
 
             return paramList.Any()
@@ -420,24 +437,5 @@ namespace pefi.http
         {
             return ReservedKeywords.Contains(identifier);
         }
-
-        private static string GetDefaultValue(IOpenApiSchema schema)
-        {
-            if (schema.Default == null)
-                return "null";
-
-            return schema.Type switch
-            {
-                JsonSchemaType.String => $"\"{schema.Default}\"",
-                JsonSchemaType.Boolean => (bool)schema.Default ? "true" : "false",
-                JsonSchemaType.Integer => schema.Default.ToString(),
-                JsonSchemaType.Number => schema.Default.ToString() + (schema.Format == "float" ? "f" : "m"),
-                _ => "null"
-            };
-        }
     }
-
-
-
-  
 }

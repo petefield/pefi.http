@@ -136,19 +136,19 @@ public class OpenApiClientGenerator : IIncrementalGenerator
         return null;
     }
 
-    private static async void Execute(SourceProductionContext context, (ClassDeclarationContext, ImmutableArray<FileDeets>) args)
+    private static async void Execute(SourceProductionContext context, (ClassDeclarationContext? Left, ImmutableArray<FileDeets> Right) args)
     {
         var (cdt, files) = args;
+        if (cdt is null) return;
         try
         {
-
             var src = await ClientGenerator.Execute(
                 nameSpace: cdt.Symbol.ContainingNamespace.ToDisplayString(),
-                className: cdt.Symbol.Name, 
+                className: cdt.Symbol.Name,
                 sourceUrl: files.Single(x => x.FileName == cdt.SpecUrl).Contents,
                 context.CancellationToken);
 
-            if (string.IsNullOrEmpty(src)) 
+            if (string.IsNullOrEmpty(src))
             {
                 throw new Exception("No src was returned from client generator.");
             }
@@ -164,8 +164,6 @@ public class OpenApiClientGenerator : IIncrementalGenerator
                    DiagnosticSeverity.Info,
                    true),
                Location.None));
-
-
         }
         catch (Exception ex)
         {
@@ -181,6 +179,4 @@ public class OpenApiClientGenerator : IIncrementalGenerator
         }
     }
 }
-
-
 
