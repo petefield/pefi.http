@@ -97,6 +97,7 @@ namespace pefi.http
         {
             var typeName = SanitizeIdentifier(name);
 
+            AppendXmlDocSummary(sb, "    ", GetSchemaDescription(schema));
             sb.AppendLine($"    public class {typeName}");
             sb.AppendLine("    {");
 
@@ -104,6 +105,7 @@ namespace pefi.http
             {
                 var propertyName = SanitizeIdentifier(property.Key);
                 var propertyType = GetCSharpTypeName(property.Value);
+                AppendXmlDocSummary(sb, "        ", GetSchemaDescription(property.Value));
                 sb.AppendLine($"        public {propertyType} {propertyName} {{ get; set; }}");
             }
 
@@ -115,6 +117,7 @@ namespace pefi.http
         {
             var typeName = SanitizeIdentifier(name);
 
+            AppendXmlDocSummary(sb, "    ", GetSchemaDescription(schema));
             sb.AppendLine($"    public enum {typeName}");
             sb.AppendLine("    {");
 
@@ -147,6 +150,13 @@ namespace pefi.http
             var parameters = GetParameters(operation);
             var hasBody = operation.RequestBody?.Content?.ContainsKey("application/json") ?? false;
             var bodyParameter = hasBody ? "body" : null;
+
+            // XML doc comment
+            AppendMethodDocComment(sb, operation, parameters, hasBody);
+
+            // Obsolete attribute
+            if (operation.Deprecated)
+                sb.AppendLine("        [System.Obsolete(\"This operation is deprecated.\")]");
 
             // Method signature
             if (string.IsNullOrEmpty(returnType))
@@ -188,6 +198,13 @@ namespace pefi.http
             var parameters = GetParameters(operation);
             var hasBody = operation.RequestBody?.Content?.ContainsKey("application/json") ?? false;
             var bodyParameter = hasBody ? "body" : null;
+
+            // XML doc comment
+            AppendMethodDocComment(sb, operation, parameters, hasBody);
+
+            // Obsolete attribute
+            if (operation.Deprecated)
+                sb.AppendLine("        [System.Obsolete(\"This operation is deprecated.\")]");
 
             // Method signature — returns ApiResponse or ApiResponse<T>
             if (string.IsNullOrEmpty(returnType))
@@ -416,6 +433,83 @@ namespace pefi.http
         {
             var sanitized = SanitizeIdentifier(name).ToLower();
             return IsReservedKeyword(sanitized) ? "@" + sanitized : sanitized;
+        }
+
+        private static string EscapeXmlDoc(string? text)
+        {
+            if (string.IsNullOrEmpty(text)) return string.Empty;
+            return text!
+                .Replace("&", "&amp;")
+                .Replace("<", "&lt;")
+                .Replace(">", "&gt;");
+        }
+
+        private static void AppendXmlDocBlock(StringBuilder sb, string indent, string tag, string? text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return;
+            var lines = EscapeXmlDoc(text).Split('\n');
+            sb.AppendLine($"{indent}/// <{tag}>");
+            foreach (var line in lines)
+                sb.AppendLine($"{indent}/// {line.TrimEnd('\r')}");
+            sb.AppendLine($"{indent}/// </{tag}>");
+        }
+
+        private static void AppendXmlDocSummary(StringBuilder sb, string indent, string? text)
+            => AppendXmlDocBlock(sb, indent, "summary", text);
+
+        private static string? GetSchemaDescription(IOpenApiSchema schema) =>
+            schema switch
+            {
+                OpenApiSchemaReference r => (r.Target as OpenApiSchema)?.Description,
+                OpenApiSchema s => s.Description,
+                _ => null
+            };
+
+        private static string? GetParameterDescription(IOpenApiParameter param) =>
+            param switch
+            {
+                OpenApiParameterReference r => r.Target?.Description,
+                OpenApiParameter p => p.Description,
+                _ => null
+            };
+
+        private static string? GetRequestBodyDescription(IOpenApiRequestBody? body) =>
+            body switch
+            {
+                OpenApiRequestBodyReference r => r.Target?.Description,
+                OpenApiRequestBody b => b.Description,
+                _ => null
+            };
+
+        private static void AppendMethodDocComment(StringBuilder sb, OpenApiOperation operation, List<IOpenApiParameter> parameters, bool hasBody)
+        {
+            var summary = operation.Summary;
+            var description = operation.Description;
+            var hasSummary = !string.IsNullOrWhiteSpace(summary);
+            var hasDescription = !string.IsNullOrWhiteSpace(description);
+            var hasParamDocs = parameters.Any(p => !string.IsNullOrWhiteSpace(GetParameterDescription(p)));
+            var bodyDesc = hasBody ? GetRequestBodyDescription(operation.RequestBody) : null;
+            var hasBodyDesc = !string.IsNullOrWhiteSpace(bodyDesc);
+
+            if (!hasSummary && !hasDescription && !hasParamDocs && !hasBodyDesc)
+                return;
+
+            AppendXmlDocSummary(sb, "        ", hasSummary ? summary : description);
+            if (hasSummary && hasDescription)
+                AppendXmlDocBlock(sb, "        ", "remarks", description);
+
+            foreach (var param in parameters)
+            {
+                var desc = GetParameterDescription(param);
+                if (!string.IsNullOrWhiteSpace(desc))
+                {
+                    var paramName = SanitizeParameterName(param.Name);
+                    sb.AppendLine($"        /// <param name=\"{paramName}\">{EscapeXmlDoc(desc)}</param>");
+                }
+            }
+
+            if (hasBodyDesc)
+                sb.AppendLine($"        /// <param name=\"body\">{EscapeXmlDoc(bodyDesc)}</param>");
         }
 
         private static readonly HashSet<string> ReservedKeywords = new HashSet<string> {
