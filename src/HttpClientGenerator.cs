@@ -44,6 +44,7 @@ namespace pefi.http
             sb.AppendLine("using System.Threading.Tasks;");
             sb.AppendLine("using System.Collections.Generic;");
             sb.AppendLine("using System.Text.Json;");
+            sb.AppendLine("using System.Linq;");
             sb.AppendLine();
 
             sb.AppendLine($"namespace {nameSpace}");
@@ -78,6 +79,7 @@ namespace pefi.http
                 foreach (var operation in path.Value.Operations)
                 {
                     GenerateApiMethod(sb, operation.Key, path.Key, operation.Value, openApiDoc);
+                    GenerateApiMethodWithResponse(sb, operation.Key, path.Key, operation.Value, openApiDoc);
                 }
             }
 
@@ -136,7 +138,6 @@ namespace pefi.http
             var bodyParameter = hasBody ? "body" : null;
 
             // Method signature
-
             if (string.IsNullOrEmpty(returnType))
                 sb.AppendLine($"        public async Task {methodName}Async(");
             else
@@ -144,20 +145,98 @@ namespace pefi.http
 
             var parameterList = GetParameterList(parameters, bodyParameter, operation);
 
-            if (! string.IsNullOrEmpty(parameterList))
+            if (!string.IsNullOrEmpty(parameterList))
                 sb.AppendLine($"            {parameterList},");
 
             sb.AppendLine($"            CancellationToken cancellationToken = default)");
             sb.AppendLine("        {");
 
+            AppendRequestSetup(sb, httpMethod, path, parameters, hasBody, operation);
+
+            // Send request
+            sb.AppendLine("            var response = await _httpClient.SendAsync(request, cancellationToken);");
+            sb.AppendLine("            response.EnsureSuccessStatusCode();");
+
+            // Handle response
+            if (!string.IsNullOrEmpty(returnType))
+            {
+                sb.AppendLine($"            return await JsonSerializer.DeserializeAsync<{returnType}>(");
+                sb.AppendLine("                await response.Content.ReadAsStreamAsync(cancellationToken),");
+                sb.AppendLine("                _jsonOptions,");
+                sb.AppendLine("                cancellationToken);");
+            }
+
+            sb.AppendLine("        }");
+            sb.AppendLine();
+        }
+
+        private static void GenerateApiMethodWithResponse(StringBuilder sb, OperationType httpMethod, string path, OpenApiOperation operation, OpenApiDocument openApiDoc)
+        {
+            var methodName = SanitizeIdentifier(operation.OperationId ?? $"{httpMethod}{SanitizeIdentifier(path)}");
+            var returnType = GetReturnType(operation);
+            var parameters = GetParameters(operation);
+            var hasBody = operation.RequestBody?.Content?.ContainsKey("application/json") ?? false;
+            var bodyParameter = hasBody ? "body" : null;
+
+            // Method signature — returns ApiResponse or ApiResponse<T>
+            if (string.IsNullOrEmpty(returnType))
+                sb.AppendLine($"        public async Task<global::pefi.http.ApiResponse> {methodName}WithResponseAsync(");
+            else
+                sb.AppendLine($"        public async Task<global::pefi.http.ApiResponse<{returnType}>> {methodName}WithResponseAsync(");
+
+            var parameterList = GetParameterList(parameters, bodyParameter, operation);
+
+            if (!string.IsNullOrEmpty(parameterList))
+                sb.AppendLine($"            {parameterList},");
+
+            sb.AppendLine($"            CancellationToken cancellationToken = default)");
+            sb.AppendLine("        {");
+
+            AppendRequestSetup(sb, httpMethod, path, parameters, hasBody, operation);
+
+            // Send request (no EnsureSuccessStatusCode — caller gets the raw status)
+            sb.AppendLine("            var response = await _httpClient.SendAsync(request, cancellationToken);");
+
+            // Read the raw body and collect headers
+            sb.AppendLine("            var rawContent = await response.Content.ReadAsStringAsync(cancellationToken);");
+            sb.AppendLine("            var headers = new Dictionary<string, string>();");
+            sb.AppendLine("            foreach (var h in response.Headers)");
+            sb.AppendLine("                headers[h.Key] = string.Join(\", \", h.Value);");
+            sb.AppendLine("            foreach (var h in response.Content.Headers)");
+            sb.AppendLine("                headers[h.Key] = string.Join(\", \", h.Value);");
+
+            // Build and return the wrapper
+            if (string.IsNullOrEmpty(returnType))
+            {
+                sb.AppendLine("            return new global::pefi.http.ApiResponse((int)response.StatusCode, headers, rawContent);");
+            }
+            else
+            {
+                sb.AppendLine($"            {returnType}? body = default;");
+                sb.AppendLine("            if (response.IsSuccessStatusCode)");
+                sb.AppendLine("            {");
+                sb.AppendLine($"                body = JsonSerializer.Deserialize<{returnType}>(rawContent, _jsonOptions);");
+                sb.AppendLine("            }");
+                sb.AppendLine($"            return new global::pefi.http.ApiResponse<{returnType}>((int)response.StatusCode, headers, rawContent, body);");
+            }
+
+            sb.AppendLine("        }");
+            sb.AppendLine();
+        }
+
+        /// <summary>
+        /// Emits the shared URL-building, query-string, request-message creation, body, and header
+        /// setup code that both convenience methods and <c>WithResponse</c> methods share.
+        /// </summary>
+        private static void AppendRequestSetup(StringBuilder sb, OperationType httpMethod, string path,
+            List<IOpenApiParameter> parameters, bool hasBody, OpenApiOperation operation)
+        {
             // Build request URL (handle path parameters)
             var requestPath = path;
             foreach (var param in parameters.Where(p => p.In == ParameterLocation.Path))
             {
                 requestPath = requestPath.Replace($"{{{param.Name}}}", $"{{{SanitizeParameterName(param.Name)}}}");
             }
-
-            // HTTP request
 
             // Add query parameters
             var queryParams = parameters.Where(p => p.In == ParameterLocation.Query).ToList();
@@ -176,12 +255,9 @@ namespace pefi.http
                 }
             }
 
-
-            sb.AppendLine($"            var url = $\"{(requestPath.StartsWith("/") ? requestPath.TrimStart('/') : requestPath) }\";");
+            sb.AppendLine($"            var url = $\"{(requestPath.StartsWith("/") ? requestPath.TrimStart('/') : requestPath)}\";");
             sb.AppendLine("            var q = queryBuilder.ToString();");
-
             sb.AppendLine($"            var request = new HttpRequestMessage(HttpMethod.{MapOperationType(httpMethod)}, $\"{{url}}{{q}}\");");
-
 
             // Add body
             if (hasBody)
@@ -192,28 +268,12 @@ namespace pefi.http
                 sb.AppendLine("                \"application/json\");");
             }
 
-            // Add headers
+            // Add header parameters
             foreach (var param in parameters.Where(p => p.In == ParameterLocation.Header))
             {
                 var paramName = SanitizeParameterName(param.Name);
                 sb.AppendLine($"            request.Headers.Add(\"{param.Name}\", {paramName});");
             }
-
-            // Send request
-            sb.AppendLine("            var response = await _httpClient.SendAsync(request, cancellationToken);");
-            sb.AppendLine("            response.EnsureSuccessStatusCode();");
-
-            // Handle response
-            if (!string.IsNullOrEmpty( returnType))
-            {
-                sb.AppendLine($"            return await JsonSerializer.DeserializeAsync<{returnType}>(");
-                sb.AppendLine("                await response.Content.ReadAsStreamAsync(cancellationToken),");
-                sb.AppendLine("                _jsonOptions,");
-                sb.AppendLine("                cancellationToken);");
-            }
-
-            sb.AppendLine("        }");
-            sb.AppendLine();
         }
 
         private static string GetCSharpTypeName(IOpenApiSchema schema)

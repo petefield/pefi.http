@@ -767,5 +767,227 @@ namespace pefi.http.OpenApiClientGenerator.Tests
             Assert.NotNull(source);
             Assert.Contains("public DateOnly date", source);
         }
+
+        // ---------------------------------------------------------------------------
+        // Response modes — WithResponseAsync methods
+        // ---------------------------------------------------------------------------
+
+        [Fact]
+        public async Task Execute_GeneratesWithResponseMethod_ForGetWithNoReturn()
+        {
+            var paths = """
+                "/ping": {
+                  "get": {
+                    "operationId": "Ping",
+                    "responses": { "204": { "description": "No Content" } }
+                  }
+                }
+            """;
+            var source = await Execute(MinimalSpec(paths: paths));
+            Assert.Contains("PingWithResponseAsync(", source);
+        }
+
+        [Fact]
+        public async Task Execute_WithResponseMethod_ReturnsNonGenericApiResponse_WhenNoJsonReturn()
+        {
+            var paths = """
+                "/ping": {
+                  "get": {
+                    "operationId": "Ping",
+                    "responses": { "204": { "description": "No Content" } }
+                  }
+                }
+            """;
+            var source = await Execute(MinimalSpec(paths: paths));
+            Assert.Contains("Task<global::pefi.http.ApiResponse> PingWithResponseAsync(", source);
+        }
+
+        [Fact]
+        public async Task Execute_WithResponseMethod_ReturnsGenericApiResponse_WhenJsonReturnPresent()
+        {
+            var paths = """
+                "/items": {
+                  "get": {
+                    "operationId": "GetItems",
+                    "responses": {
+                      "200": {
+                        "description": "OK",
+                        "content": {
+                          "application/json": {
+                            "schema": { "type": "array", "items": { "type": "string" } }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+            """;
+            var source = await Execute(MinimalSpec(paths: paths));
+            Assert.Contains("Task<global::pefi.http.ApiResponse<IReadOnlyList<string>>> GetItemsWithResponseAsync(", source);
+        }
+
+        [Fact]
+        public async Task Execute_WithResponseMethod_ReturnsGenericApiResponse_ForReferenceSchema()
+        {
+            var schemas = """
+                "Widget": { "type": "object", "properties": {} }
+            """;
+            var paths = """
+                "/widget": {
+                  "get": {
+                    "operationId": "GetWidget",
+                    "responses": {
+                      "200": {
+                        "description": "OK",
+                        "content": {
+                          "application/json": {
+                            "schema": { "$ref": "#/components/schemas/Widget" }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+            """;
+            var source = await Execute(MinimalSpec(paths: paths, schemas: schemas));
+            Assert.Contains("Task<global::pefi.http.ApiResponse<Widget>> GetWidgetWithResponseAsync(", source);
+        }
+
+        [Fact]
+        public async Task Execute_WithResponseMethod_ReadsRawContent()
+        {
+            var paths = """
+                "/items": {
+                  "get": {
+                    "operationId": "GetItems",
+                    "responses": { "200": { "description": "OK" } }
+                  }
+                }
+            """;
+            var source = await Execute(MinimalSpec(paths: paths));
+            Assert.Contains("ReadAsStringAsync", source);
+        }
+
+        [Fact]
+        public async Task Execute_WithResponseMethod_CollectsResponseHeaders()
+        {
+            var paths = """
+                "/items": {
+                  "get": {
+                    "operationId": "GetItems",
+                    "responses": { "200": { "description": "OK" } }
+                  }
+                }
+            """;
+            var source = await Execute(MinimalSpec(paths: paths));
+            // Verify the generated code builds the headers dictionary from response.Headers and response.Content.Headers
+            Assert.Contains("response.Headers", source);
+            Assert.Contains("response.Content.Headers", source);
+        }
+
+        [Fact]
+        public async Task Execute_WithResponseMethod_UsesStatusCode()
+        {
+            var paths = """
+                "/items": {
+                  "get": {
+                    "operationId": "GetItems",
+                    "responses": { "200": { "description": "OK" } }
+                  }
+                }
+            """;
+            var source = await Execute(MinimalSpec(paths: paths));
+            Assert.Contains("response.StatusCode", source);
+        }
+
+        [Fact]
+        public async Task Execute_WithResponseMethod_DoesNotCallEnsureSuccessStatusCode()
+        {
+            var paths = """
+                "/items": {
+                  "get": {
+                    "operationId": "GetItems",
+                    "responses": { "200": { "description": "OK" } }
+                  }
+                }
+            """;
+            var source = await Execute(MinimalSpec(paths: paths));
+            // The WithResponse variant must NOT throw on non-2xx; verify EnsureSuccessStatusCode
+            // appears exactly once (from the non-WithResponse convenience method).
+            var occurrences = CountOccurrences(source, "EnsureSuccessStatusCode");
+            Assert.Equal(1, occurrences);
+        }
+
+        [Fact]
+        public async Task Execute_WithResponseMethod_DeserializesBody_OnSuccess()
+        {
+            var paths = """
+                "/items": {
+                  "get": {
+                    "operationId": "GetItems",
+                    "responses": {
+                      "200": {
+                        "description": "OK",
+                        "content": {
+                          "application/json": {
+                            "schema": { "type": "array", "items": { "type": "string" } }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+            """;
+            var source = await Execute(MinimalSpec(paths: paths));
+            // WithResponse method checks IsSuccessStatusCode before deserializing
+            Assert.Contains("IsSuccessStatusCode", source);
+        }
+
+        [Fact]
+        public async Task Execute_WithResponseMethod_HasCancellationTokenParameter()
+        {
+            var paths = """
+                "/items": {
+                  "get": {
+                    "operationId": "GetItems",
+                    "responses": { "200": { "description": "OK" } }
+                  }
+                }
+            """;
+            var source = await Execute(MinimalSpec(paths: paths));
+            // Both the convenience method and the WithResponse method should accept CancellationToken
+            var occurrences = CountOccurrences(source, "CancellationToken cancellationToken = default");
+            Assert.Equal(2, occurrences);
+        }
+
+        [Fact]
+        public async Task Execute_FullSpec_GeneratesWithResponseMethods()
+        {
+            var specPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "client_config", "service_mgr_openapi.json");
+            var spec = System.IO.File.ReadAllText(specPath);
+
+            var source = await ClientGenerator.Execute("MyNS", "ServiceMgrClient", spec, CancellationToken.None);
+
+            Assert.NotNull(source);
+            Assert.Contains("Get_All_ConfigsWithResponseAsync(", source);
+            Assert.Contains("CreateConfigWithResponseAsync(", source);
+            Assert.Contains("GetWeatherForecastWithResponseAsync(", source);
+        }
+
+        // ---------------------------------------------------------------------------
+        // Helper
+        // ---------------------------------------------------------------------------
+
+        private static int CountOccurrences(string? source, string token)
+        {
+            if (source is null) return 0;
+            int count = 0, index = 0;
+            while ((index = source.IndexOf(token, index, StringComparison.Ordinal)) >= 0)
+            {
+                count++;
+                index += token.Length;
+            }
+            return count;
+        }
     }
 }
