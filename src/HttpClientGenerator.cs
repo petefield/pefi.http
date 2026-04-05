@@ -63,6 +63,35 @@ namespace pefi.http
                 }
             }
 
+            // Generate inline enums from operation parameters
+            var paramEnumTypes = new Dictionary<string, Dictionary<string, string>>();
+            foreach (var pathEntry in openApiDoc.Paths)
+            {
+                foreach (var operation in pathEntry.Value.Operations)
+                {
+                    var opId = operation.Value.OperationId ?? $"{operation.Key}{SanitizeIdentifier(pathEntry.Key)}";
+                    var methodName = SanitizeIdentifier(opId);
+                    var opEnums = new Dictionary<string, string>();
+
+                    if (operation.Value.Parameters != null)
+                    {
+                        foreach (var param in operation.Value.Parameters)
+                        {
+                            if (param.Schema is not OpenApiSchemaReference &&
+                                param.Schema?.Enum?.Count > 0)
+                            {
+                                var enumName = $"{methodName}{SanitizeIdentifier(param.Name)}";
+                                GenerateEnum(sb, enumName, param.Schema);
+                                opEnums[param.Name] = enumName;
+                            }
+                        }
+                    }
+
+                    if (opEnums.Any())
+                        paramEnumTypes[opId] = opEnums;
+                }
+            }
+
             // Generate partial class
             sb.AppendLine($"    public partial class {className}");
             sb.AppendLine("    {");
@@ -86,8 +115,11 @@ namespace pefi.http
             {
                 foreach (var operation in path.Value.Operations)
                 {
-                    GenerateApiMethod(sb, operation.Key, path.Key, operation.Value, openApiDoc);
-                    GenerateApiMethodWithResponse(sb, operation.Key, path.Key, operation.Value, openApiDoc);
+                    var opId = operation.Value.OperationId ?? $"{operation.Key}{SanitizeIdentifier(path.Key)}";
+                    paramEnumTypes.TryGetValue(opId, out var opEnums);
+                    var enumMap = opEnums ?? new Dictionary<string, string>();
+                    GenerateApiMethod(sb, operation.Key, path.Key, operation.Value, openApiDoc, enumMap);
+                    GenerateApiMethodWithResponse(sb, operation.Key, path.Key, operation.Value, openApiDoc, enumMap);
                 }
             }
 
@@ -170,7 +202,7 @@ namespace pefi.http
             _ => throw new ArgumentOutOfRangeException(nameof(ot), $"Not expected operationType value: {ot}"),
         };
 
-        private static void GenerateApiMethod(StringBuilder sb, OperationType httpMethod, string path, OpenApiOperation operation, OpenApiDocument openApiDoc)
+        private static void GenerateApiMethod(StringBuilder sb, OperationType httpMethod, string path, OpenApiOperation operation, OpenApiDocument openApiDoc, Dictionary<string, string> paramEnumTypes)
         {
             var methodName = SanitizeIdentifier(operation.OperationId ?? $"{httpMethod}{SanitizeIdentifier(path)}");
             var returnType = GetReturnType(operation);
@@ -191,7 +223,7 @@ namespace pefi.http
             else
                 sb.AppendLine($"        public async Task<{returnType}> {methodName}Async(");
 
-            var parameterList = GetParameterList(parameters, bodyParameter, operation);
+            var parameterList = GetParameterList(parameters, bodyParameter, operation, paramEnumTypes);
 
             if (!string.IsNullOrEmpty(parameterList))
                 sb.AppendLine($"            {parameterList},");
@@ -218,7 +250,7 @@ namespace pefi.http
             sb.AppendLine();
         }
 
-        private static void GenerateApiMethodWithResponse(StringBuilder sb, OperationType httpMethod, string path, OpenApiOperation operation, OpenApiDocument openApiDoc)
+        private static void GenerateApiMethodWithResponse(StringBuilder sb, OperationType httpMethod, string path, OpenApiOperation operation, OpenApiDocument openApiDoc, Dictionary<string, string> paramEnumTypes)
         {
             var methodName = SanitizeIdentifier(operation.OperationId ?? $"{httpMethod}{SanitizeIdentifier(path)}");
             var returnType = GetReturnType(operation);
@@ -239,7 +271,7 @@ namespace pefi.http
             else
                 sb.AppendLine($"        public async Task<global::pefi.http.ApiResponse<{returnType}>> {methodName}WithResponseAsync(");
 
-            var parameterList = GetParameterList(parameters, bodyParameter, operation);
+            var parameterList = GetParameterList(parameters, bodyParameter, operation, paramEnumTypes);
 
             if (!string.IsNullOrEmpty(parameterList))
                 sb.AppendLine($"            {parameterList},");
@@ -397,7 +429,7 @@ namespace pefi.http
             return parameters;
         }
 
-        private static string GetParameterList(List<IOpenApiParameter> parameters, string? bodyParameter, OpenApiOperation operation)
+        private static string GetParameterList(List<IOpenApiParameter> parameters, string? bodyParameter, OpenApiOperation operation, Dictionary<string, string> paramEnumTypes)
         {
             var paramList = new List<string>();
 
@@ -407,7 +439,11 @@ namespace pefi.http
             foreach (var param in ordered)
             {
                 var paramName = SanitizeParameterName(param.Name);
-                var paramType = GetCSharpTypeName(param.Schema);
+                string paramType;
+                if (paramEnumTypes.TryGetValue(param.Name, out var enumType))
+                    paramType = enumType;
+                else
+                    paramType = GetCSharpTypeName(param.Schema);
                 var defaultValue = param.Required ? "" : " = null";
 
                 if (!paramType.EndsWith("?"))
