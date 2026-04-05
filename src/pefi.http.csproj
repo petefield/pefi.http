@@ -37,6 +37,9 @@
     <None Include="$(PkgSystem_Threading_Tasks_Extensions)\lib\netstandard2.0\*.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
     <None Include="$(PkgSystem_IO_Pipelines)\lib\netstandard2.0\*.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
 
+    <!-- Include the .props file in the package so it's automatically imported by consuming projects -->
+    <None Include="build\pefi.http.props" Pack="true" PackagePath="build" Visible="false" />
+    <None Include="build\pefi.http.props" Pack="true" PackagePath="buildTransitive" Visible="false" />
   </ItemGroup>
 
  

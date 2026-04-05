@@ -1,0 +1,16 @@
+<Project>
+  <PropertyGroup>
+    <!-- Enable auto-discovery of OpenAPI spec files -->
+    <PefiHttpAutoDiscoverSpecs Condition="'$(PefiHttpAutoDiscoverSpecs)' == ''">true</PefiHttpAutoDiscoverSpecs>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(PefiHttpAutoDiscoverSpecs)' == 'true'">
+    <!-- Automatically include common OpenAPI spec file patterns as AdditionalFiles -->
+    <!-- Pattern 1: Files ending with .openapi.json (recommended naming convention) -->
+    <AdditionalFiles Include="**\*.openapi.json" Exclude="$(DefaultItemExcludes);bin\**;obj\**" />
+
+    <!-- Pattern 2: Files in openapi or api-specs directories -->
+    <AdditionalFiles Include="openapi\*.json" Exclude="$(DefaultItemExcludes);bin\**;obj\**" />
+    <AdditionalFiles Include="api-specs\*.json" Exclude="$(DefaultItemExcludes);bin\**;obj\**" />
+  </ItemGroup>
+</Project>

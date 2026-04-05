@@ -38,13 +38,29 @@ Then add the package reference to your project:
 
 ### 1. Add your OpenAPI specification to the project
 
-Add your OpenAPI JSON spec file to the project and mark it as an `AdditionalFiles` item:
+**Recommended (Automatic):** Name your OpenAPI spec file with the `.openapi.json` extension and place it anywhere in your project. The file will be automatically discovered:
+
+```
+MyProject/
+├── weather-api.openapi.json     ✓ Auto-discovered
+├── auth-service.openapi.json    ✓ Auto-discovered
+└── openapi/
+    └── payments.json            ✓ Auto-discovered (files in openapi/ directory)
+```
+
+**Alternative:** Explicitly add your OpenAPI JSON spec file to the project as an `AdditionalFiles` item:
 
 ```xml
 <ItemGroup>
   <AdditionalFiles Include="my-api-spec.json" />
 </ItemGroup>
 ```
+
+> **Note:** Auto-discovery looks for:
+> - Files matching `*.openapi.json` anywhere in the project
+> - Any `.json` files in `openapi/` or `api-specs/` directories
+>
+> You can disable auto-discovery by setting `<PefiHttpAutoDiscoverSpecs>false</PefiHttpAutoDiscoverSpecs>` in your project file.
 
 ### 2. Decorate a partial class with the `[GenerateHttpClient]` attribute
 
@@ -53,13 +69,13 @@ using pefi.http;
 
 namespace MyApp;
 
-[GenerateHttpClient("my-api-spec.json")]
+[GenerateHttpClient("my-api.openapi.json")]
 public partial class MyApiClient
 {
 }
 ```
 
-The attribute argument must match the **file name** (not the full path) of the `AdditionalFiles` entry.
+The attribute argument must match the **file name** (not the full path) of your OpenAPI spec file.
 
 ### 3. Register and use the generated client
 
