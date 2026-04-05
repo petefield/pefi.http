@@ -29,7 +29,7 @@ Add the GitHub Packages NuGet source to your `nuget.config` (or global NuGet con
 Then add the package reference to your project:
 
 ```xml
-<PackageReference Include="pefi.http" Version="*-ci-*" />
+<PackageReference Include="pefi.http" Version="2.*" />
 ```
 
 > **Note:** You need a GitHub Personal Access Token (PAT) with `read:packages` scope to authenticate with GitHub Packages. See [GitHub's documentation](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-nuget-registry#authenticating-to-github-packages) for details.
@@ -178,6 +178,25 @@ OpenAPI types are mapped to C# types as follows:
 | `object`    | —           | `object`        |
 
 Nullable OpenAPI types (those with `nullable: true` or `| null`) are mapped to their nullable C# equivalents (e.g. `string?`, `int?`).
+
+## Release Numbering
+
+Versions are calculated automatically by [GitVersion](https://gitversion.net/) using the configuration in `GitVersion.yml`. The project follows [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`).
+
+| Scenario | Example version | Notes |
+|---|---|---|
+| Push / merge to `main` | `2.0.5` | Stable release; patch is auto-incremented on every push. A Git tag (`v2.0.5`) and a GitHub Release are created automatically and the NuGet package is published. |
+| Pull request | `2.0.5-pr.3` | Pre-release; the `pr` label and build counter are appended. Not published as a GitHub Release. |
+
+### Bumping Major or Minor
+
+The patch number increments automatically. To bump the **major** or **minor** version, update the `next-version` field in `GitVersion.yml` before merging to `main`:
+
+```yaml
+next-version: 3.0.0   # triggers a major bump on the next merge
+```
+
+GitVersion will then use that as the floor for the next computed version.
 
 ## Building
 
