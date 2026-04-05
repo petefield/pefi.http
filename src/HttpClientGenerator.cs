@@ -73,7 +73,11 @@ namespace pefi.http
             sb.AppendLine($"        public {className}(HttpClient httpClient)");
             sb.AppendLine("        {");
             sb.AppendLine("            _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));");
-            sb.AppendLine("            _jsonOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };");
+            sb.AppendLine("            _jsonOptions = new JsonSerializerOptions");
+            sb.AppendLine("            {");
+            sb.AppendLine("                PropertyNameCaseInsensitive = true,");
+            sb.AppendLine("                Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }");
+            sb.AppendLine("            };");
             sb.AppendLine("        }");
             sb.AppendLine();
 
@@ -97,6 +101,19 @@ namespace pefi.http
         {
             var typeName = SanitizeIdentifier(name);
 
+            // Generate inline enum types for properties that define enum values directly
+            var inlineEnumTypes = new Dictionary<string, string>();
+            foreach (var property in schema.Properties)
+            {
+                if (property.Value is not OpenApiSchemaReference &&
+                    property.Value.Enum?.Count > 0)
+                {
+                    var enumName = $"{typeName}{SanitizeIdentifier(property.Key)}";
+                    GenerateEnum(sb, enumName, property.Value);
+                    inlineEnumTypes[property.Key] = enumName;
+                }
+            }
+
             AppendXmlDocSummary(sb, "    ", GetSchemaDescription(schema));
             sb.AppendLine($"    public class {typeName}");
             sb.AppendLine("    {");
@@ -104,7 +121,17 @@ namespace pefi.http
             foreach (var property in schema.Properties)
             {
                 var propertyName = SanitizeIdentifier(property.Key);
-                var propertyType = GetCSharpTypeName(property.Value);
+                string propertyType;
+                if (inlineEnumTypes.TryGetValue(property.Key, out var enumType))
+                {
+                    var isNullable = property.Value.Type.HasValue &&
+                                     property.Value.Type.Value.HasFlag(JsonSchemaType.Null);
+                    propertyType = isNullable ? $"{enumType}?" : enumType;
+                }
+                else
+                {
+                    propertyType = GetCSharpTypeName(property.Value);
+                }
                 AppendXmlDocSummary(sb, "        ", GetSchemaDescription(property.Value));
                 sb.AppendLine($"        public {propertyType} {propertyName} {{ get; set; }}");
             }
