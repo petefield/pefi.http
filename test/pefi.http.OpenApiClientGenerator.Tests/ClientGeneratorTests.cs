@@ -1086,5 +1086,242 @@ namespace pefi.http.OpenApiClientGenerator.Tests
             Assert.True(filterIndex >= 0, "optional 'filter' parameter not found");
             Assert.True(idIndex < filterIndex, "required parameter 'id' should appear before optional 'filter'");
         }
+
+        // ---------------------------------------------------------------------------
+        // XML documentation comments and deprecation
+        // ---------------------------------------------------------------------------
+
+        [Fact]
+        public async Task Execute_EmitsXmlDocSummary_FromOperationSummary()
+        {
+            var paths = """
+                "/items": {
+                  "get": {
+                    "operationId": "ListItems",
+                    "summary": "Returns all items.",
+                    "responses": { "200": { "description": "OK" } }
+                  }
+                }
+            """;
+            var source = await Execute(MinimalSpec(paths: paths));
+            Assert.Contains("/// <summary>", source);
+            Assert.Contains("/// Returns all items.", source);
+            Assert.Contains("/// </summary>", source);
+        }
+
+        [Fact]
+        public async Task Execute_EmitsXmlDocSummary_FromOperationDescription_WhenNoSummary()
+        {
+            var paths = """
+                "/items": {
+                  "get": {
+                    "operationId": "ListItems",
+                    "description": "Retrieves the full item list from the database.",
+                    "responses": { "200": { "description": "OK" } }
+                  }
+                }
+            """;
+            var source = await Execute(MinimalSpec(paths: paths));
+            Assert.Contains("/// <summary>", source);
+            Assert.Contains("/// Retrieves the full item list from the database.", source);
+            Assert.Contains("/// </summary>", source);
+        }
+
+        [Fact]
+        public async Task Execute_EmitsXmlDocRemarksForDescription_WhenBothSummaryAndDescriptionPresent()
+        {
+            var paths = """
+                "/items": {
+                  "get": {
+                    "operationId": "ListItems",
+                    "summary": "Returns all items.",
+                    "description": "Retrieves the full item list from the database.",
+                    "responses": { "200": { "description": "OK" } }
+                  }
+                }
+            """;
+            var source = await Execute(MinimalSpec(paths: paths));
+            Assert.Contains("/// <summary>", source);
+            Assert.Contains("/// Returns all items.", source);
+            Assert.Contains("/// <remarks>", source);
+            Assert.Contains("/// Retrieves the full item list from the database.", source);
+            Assert.Contains("/// </remarks>", source);
+        }
+
+        [Fact]
+        public async Task Execute_EmitsXmlDocParam_FromParameterDescription()
+        {
+            var paths = """
+                "/items/{id}": {
+                  "get": {
+                    "operationId": "GetItem",
+                    "summary": "Get an item.",
+                    "parameters": [
+                      {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "The unique item identifier.",
+                        "schema": { "type": "string" }
+                      }
+                    ],
+                    "responses": { "200": { "description": "OK" } }
+                  }
+                }
+            """;
+            var source = await Execute(MinimalSpec(paths: paths));
+            Assert.Contains("/// <param name=\"id\">The unique item identifier.</param>", source);
+        }
+
+        [Fact]
+        public async Task Execute_EmitsXmlDocParam_ForBody_FromRequestBodyDescription()
+        {
+            var paths = """
+                "/items": {
+                  "post": {
+                    "operationId": "CreateItem",
+                    "summary": "Create an item.",
+                    "requestBody": {
+                      "description": "The item to create.",
+                      "required": true,
+                      "content": {
+                        "application/json": {
+                          "schema": { "type": "object", "properties": { "name": { "type": "string" } } }
+                        }
+                      }
+                    },
+                    "responses": { "200": { "description": "OK" } }
+                  }
+                }
+            """;
+            var source = await Execute(MinimalSpec(paths: paths));
+            Assert.Contains("/// <param name=\"body\">The item to create.</param>", source);
+        }
+
+        [Fact]
+        public async Task Execute_NoXmlDocComment_WhenOperationHasNoSummaryOrDescription()
+        {
+            var paths = """
+                "/items": {
+                  "get": {
+                    "operationId": "ListItems",
+                    "responses": { "200": { "description": "OK" } }
+                  }
+                }
+            """;
+            var source = await Execute(MinimalSpec(paths: paths));
+            Assert.DoesNotContain("/// <summary>", source);
+        }
+
+        [Fact]
+        public async Task Execute_EmitsObsoleteAttribute_ForDeprecatedOperation_OnAsyncMethod()
+        {
+            var paths = """
+                "/items": {
+                  "get": {
+                    "operationId": "ListItems",
+                    "deprecated": true,
+                    "responses": { "200": { "description": "OK" } }
+                  }
+                }
+            """;
+            var source = await Execute(MinimalSpec(paths: paths));
+            Assert.Contains("[System.Obsolete(\"This operation is deprecated.\")]", source);
+        }
+
+        [Fact]
+        public async Task Execute_EmitsObsoleteAttribute_ForDeprecatedOperation_OnBothMethods()
+        {
+            var paths = """
+                "/items": {
+                  "get": {
+                    "operationId": "ListItems",
+                    "deprecated": true,
+                    "responses": { "200": { "description": "OK" } }
+                  }
+                }
+            """;
+            var source = await Execute(MinimalSpec(paths: paths));
+            var count = CountOccurrences(source, "[System.Obsolete(\"This operation is deprecated.\")]");
+            Assert.Equal(2, count);
+        }
+
+        [Fact]
+        public async Task Execute_NoObsoleteAttribute_ForNonDeprecatedOperation()
+        {
+            var paths = """
+                "/items": {
+                  "get": {
+                    "operationId": "ListItems",
+                    "responses": { "200": { "description": "OK" } }
+                  }
+                }
+            """;
+            var source = await Execute(MinimalSpec(paths: paths));
+            Assert.DoesNotContain("[System.Obsolete", source);
+        }
+
+        [Fact]
+        public async Task Execute_EmitsXmlDocSummary_ForModelClass_FromSchemaDescription()
+        {
+            var schemas = """
+                "Widget": {
+                  "type": "object",
+                  "description": "Represents a widget in the system.",
+                  "properties": {
+                    "name": { "type": "string" }
+                  }
+                }
+            """;
+            var source = await Execute(MinimalSpec(schemas: schemas));
+            Assert.Contains("/// <summary>", source);
+            Assert.Contains("/// Represents a widget in the system.", source);
+        }
+
+        [Fact]
+        public async Task Execute_EmitsXmlDocSummary_ForModelProperty_FromPropertyDescription()
+        {
+            var schemas = """
+                "Widget": {
+                  "type": "object",
+                  "properties": {
+                    "name": { "type": "string", "description": "The display name of the widget." }
+                  }
+                }
+            """;
+            var source = await Execute(MinimalSpec(schemas: schemas));
+            Assert.Contains("/// The display name of the widget.", source);
+        }
+
+        [Fact]
+        public async Task Execute_EmitsXmlDocSummary_ForEnum_FromSchemaDescription()
+        {
+            var schemas = """
+                "Status": {
+                  "type": "string",
+                  "description": "The current lifecycle status.",
+                  "enum": ["active", "inactive"]
+                }
+            """;
+            var source = await Execute(MinimalSpec(schemas: schemas));
+            Assert.Contains("/// <summary>", source);
+            Assert.Contains("/// The current lifecycle status.", source);
+        }
+
+        [Fact]
+        public async Task Execute_EscapesXmlSpecialChars_InDocComment()
+        {
+            var paths = """
+                "/items": {
+                  "get": {
+                    "operationId": "ListItems",
+                    "summary": "Returns items where value < 100 & type > 0.",
+                    "responses": { "200": { "description": "OK" } }
+                  }
+                }
+            """;
+            var source = await Execute(MinimalSpec(paths: paths));
+            Assert.Contains("/// Returns items where value &lt; 100 &amp; type &gt; 0.", source);
+        }
     }
 }
