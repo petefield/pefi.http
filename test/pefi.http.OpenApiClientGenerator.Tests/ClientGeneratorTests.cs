@@ -989,5 +989,102 @@ namespace pefi.http.OpenApiClientGenerator.Tests
             }
             return count;
         }
+
+        // ---------------------------------------------------------------------------
+        // Enum generation
+        // ---------------------------------------------------------------------------
+
+        [Fact]
+        public async Task Execute_GeneratesEnumType_WhenSchemaHasEnumValues()
+        {
+            var schemas = """
+                "Status": {
+                  "type": "string",
+                  "enum": ["active", "inactive", "pending"]
+                }
+            """;
+            var source = await Execute(MinimalSpec(schemas: schemas));
+            Assert.Contains("public enum Status", source);
+            Assert.Contains("active,", source);
+            Assert.Contains("inactive,", source);
+            Assert.Contains("pending,", source);
+        }
+
+        [Fact]
+        public async Task Execute_DoesNotGenerateClassForEnumSchema()
+        {
+            var schemas = """
+                "Status": {
+                  "type": "string",
+                  "enum": ["active", "inactive"]
+                }
+            """;
+            var source = await Execute(MinimalSpec(schemas: schemas));
+            Assert.DoesNotContain("public class Status", source);
+        }
+
+        [Fact]
+        public async Task Execute_EnumReference_UsesEnumTypeInsteadOfString()
+        {
+            var schemas = """
+                "Status": {
+                  "type": "string",
+                  "enum": ["active", "inactive"]
+                },
+                "Widget": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "$ref": "#/components/schemas/Status" }
+                  }
+                }
+            """;
+            var source = await Execute(MinimalSpec(schemas: schemas));
+            // The property should use the enum type name, not plain string
+            Assert.Contains("public Status status", source);
+        }
+
+        [Fact]
+        public async Task Execute_SanitizesEnumMemberNames()
+        {
+            var schemas = """
+                "Priority": {
+                  "type": "string",
+                  "enum": ["high-priority", "low_priority", "NORMAL"]
+                }
+            """;
+            var source = await Execute(MinimalSpec(schemas: schemas));
+            Assert.Contains("public enum Priority", source);
+            Assert.Contains("high_priority,", source);
+            Assert.Contains("low_priority,", source);
+            Assert.Contains("NORMAL,", source);
+        }
+
+        // ---------------------------------------------------------------------------
+        // Parameter ordering (required before optional)
+        // ---------------------------------------------------------------------------
+
+        [Fact]
+        public async Task Execute_RequiredParametersBeforeOptional_InMethodSignature()
+        {
+            var paths = """
+                "/search": {
+                  "get": {
+                    "operationId": "Search",
+                    "parameters": [
+                      { "name": "filter", "in": "query", "required": false, "schema": { "type": "string" } },
+                      { "name": "id",     "in": "query", "required": true,  "schema": { "type": "integer", "format": "int32" } }
+                    ],
+                    "responses": { "200": { "description": "OK" } }
+                  }
+                }
+            """;
+            var source = await Execute(MinimalSpec(paths: paths));
+            // 'id' is required and should appear before optional 'filter'
+            var idIndex = source!.IndexOf("int id", StringComparison.Ordinal);
+            var filterIndex = source.IndexOf("string? filter", StringComparison.Ordinal);
+            Assert.True(idIndex >= 0, "required 'id' parameter not found");
+            Assert.True(filterIndex >= 0, "optional 'filter' parameter not found");
+            Assert.True(idIndex < filterIndex, "required parameter 'id' should appear before optional 'filter'");
+        }
     }
 }

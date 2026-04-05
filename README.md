@@ -6,7 +6,8 @@ A C# [Roslyn source generator](https://learn.microsoft.com/en-us/dotnet/csharp/r
 
 - Generates a complete `HttpClient` wrapper at compile time from an OpenAPI 3.x JSON specification
 - Generates C# model classes for all schemas defined in `components/schemas`
-- Supports path, query, and header parameters
+- Generates C# `enum` types for OpenAPI schemas that define an `enum` array
+- Supports path, query, and header parameters (required parameters are always emitted before optional ones)
 - Supports JSON request bodies and JSON response deserialization
 - Handles all standard HTTP methods: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `TRACE`
 - Zero runtime overhead — all code is generated during compilation
@@ -176,6 +177,30 @@ OpenAPI types are mapped to C# types as follows:
 | `boolean`   | —           | `bool`          |
 | `array`     | —           | `IReadOnlyList<T>` |
 | `object`    | —           | `object`        |
+
+Schemas in `components/schemas` that include an `enum` array are mapped to C# `enum` types rather than classes. Properties or parameters that reference such a schema use the generated enum type:
+
+```json
+"components": {
+  "schemas": {
+    "Status": {
+      "type": "string",
+      "enum": ["active", "inactive", "pending"]
+    }
+  }
+}
+```
+
+Generates:
+
+```csharp
+public enum Status
+{
+    active,
+    inactive,
+    pending,
+}
+```
 
 Nullable OpenAPI types (those with `nullable: true` or `| null`) are mapped to their nullable C# equivalents (e.g. `string?`, `int?`).
 
