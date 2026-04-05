@@ -72,8 +72,6 @@ jobs:
       with:
         script: |
           const tag = process.env.TAG;
-          const version = process.env.VERSION;
-          const isPrerelease = version.includes('-');
           try {
             await github.rest.repos.getReleaseByTag({
               owner: context.repo.owner,
@@ -89,7 +87,7 @@ jobs:
               tag_name: tag,
               name: `Release ${tag}`,
               draft: false,
-              prerelease: isPrerelease,
+              prerelease: false,
               generate_release_notes: true,
             });
           }
