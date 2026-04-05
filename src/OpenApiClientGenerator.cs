@@ -58,9 +58,9 @@ public class OpenApiClientGenerator : IIncrementalGenerator
 
     private static async void Execute(SourceProductionContext context, (ClassDeclarationContext, ImmutableArray<FileDeets>) args)
     {
+        var (cdt, files) = args;
         try
         {
-            var (cdt, files) = args;
 
             var src = await ClientGenerator.Execute(
                 nameSpace: cdt.Symbol.ContainingNamespace.ToDisplayString(),
@@ -79,7 +79,7 @@ public class OpenApiClientGenerator : IIncrementalGenerator
                new DiagnosticDescriptor(
                    "OAC1000",
                    "OpenAPI Client Generation Succeeded",
-                   $"Error generating client {cdt.Symbol.Name} from {cdt.SpecUrl}",
+                   $"Generated client {cdt.Symbol.Name} from {cdt.SpecUrl}",
                    "OpenApiClientGenerator",
                    DiagnosticSeverity.Info,
                    true),
@@ -91,9 +91,9 @@ public class OpenApiClientGenerator : IIncrementalGenerator
         {
             context.ReportDiagnostic(Diagnostic.Create(
                 new DiagnosticDescriptor(
-                    "OAC1000",
+                    "OAC1001",
                     "OpenAPI Client Generation Error",
-                    $"Error generating client from ",
+                    $"Error generating client {cdt.Symbol.Name} from {cdt.SpecUrl}: {ex.Message}",
                     "OpenApiClientGenerator",
                     DiagnosticSeverity.Warning,
                     true),

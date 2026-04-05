@@ -322,6 +322,27 @@ namespace pefi.http.OpenApiClientGenerator.Tests
         }
 
         [Fact]
+        public async Task Execute_GeneratesPutMethod()
+        {
+            var paths = """
+                "/items/{id}": {
+                  "put": {
+                    "operationId": "UpdateItem",
+                    "parameters": [
+                      { "name": "id", "in": "path", "required": true,
+                        "schema": { "type": "string" } }
+                    ],
+                    "responses": { "200": { "description": "OK" } }
+                  }
+                }
+            """;
+            var source = await Execute(MinimalSpec(paths: paths));
+            Assert.Contains("UpdateItemAsync(", source);
+            Assert.Contains("HttpMethod.Put", source);
+            Assert.DoesNotContain("HttpMethod.GetPut", source);
+        }
+
+        [Fact]
         public async Task Execute_GeneratesAsyncTaskReturn_WhenNoJsonResponse()
         {
             var paths = """

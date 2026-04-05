@@ -62,7 +62,7 @@ namespace pefi.http
             sb.AppendLine($"    public partial class {className}");
             sb.AppendLine("    {");
             sb.AppendLine("        private readonly HttpClient _httpClient;");
-            sb.AppendLine("        public JsonSerializerOptions _jsonOptions {get; set; }");
+            sb.AppendLine("        private readonly JsonSerializerOptions _jsonOptions;");
             sb.AppendLine();
 
             sb.AppendLine($"        public {className}(HttpClient httpClient)");
@@ -119,7 +119,7 @@ namespace pefi.http
         {
             OperationType.Get => "Get",
             OperationType.Patch => "Patch",
-            OperationType.Put => "GetPut",
+            OperationType.Put => "Put",
             OperationType.Post => "Post",
             OperationType.Delete => "Delete",
             OperationType.Head => "Head",
@@ -341,9 +341,7 @@ namespace pefi.http
             return IsReservedKeyword(sanitized) ? "@" + sanitized : sanitized;
         }
 
-        private static bool IsReservedKeyword(string identifier)
-        {
-            var keywords = new HashSet<string> {
+        private static readonly HashSet<string> ReservedKeywords = new HashSet<string> {
             "abstract", "as", "base", "bool", "break", "byte", "case", "catch",
             "char", "checked", "class", "const", "continue", "decimal", "default",
             "delegate", "do", "double", "else", "enum", "event", "explicit",
@@ -358,7 +356,9 @@ namespace pefi.http
             "volatile", "while"
         };
 
-            return keywords.Contains(identifier);
+        private static bool IsReservedKeyword(string identifier)
+        {
+            return ReservedKeywords.Contains(identifier);
         }
 
         private static string GetDefaultValue(IOpenApiSchema schema)
