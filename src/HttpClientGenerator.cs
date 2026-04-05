@@ -240,12 +240,12 @@ namespace pefi.http
             }
             else
             {
-                sb.AppendLine($"            {returnType}? body = default;");
+                sb.AppendLine($"            {returnType}? responseBody = default;");
                 sb.AppendLine("            if (response.IsSuccessStatusCode)");
                 sb.AppendLine("            {");
-                sb.AppendLine($"                body = JsonSerializer.Deserialize<{returnType}>(rawContent, _jsonOptions);");
+                sb.AppendLine($"                responseBody = JsonSerializer.Deserialize<{returnType}>(rawContent, _jsonOptions);");
                 sb.AppendLine("            }");
-                sb.AppendLine($"            return new global::pefi.http.ApiResponse<{returnType}>((int)response.StatusCode, headers, rawContent, body);");
+                sb.AppendLine($"            return new global::pefi.http.ApiResponse<{returnType}>((int)response.StatusCode, headers, rawContent, responseBody);");
             }
 
             sb.AppendLine("        }");
