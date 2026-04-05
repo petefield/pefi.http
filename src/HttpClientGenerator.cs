@@ -120,7 +120,7 @@ namespace pefi.http
 
             foreach (var enumValue in schema.Enum)
             {
-                var memberName = SanitizeIdentifier(enumValue?.ToString() ?? "_");
+                var memberName = SanitizeIdentifier(enumValue?.ToString() ?? "Unknown");
                 sb.AppendLine($"        {memberName},");
             }
 

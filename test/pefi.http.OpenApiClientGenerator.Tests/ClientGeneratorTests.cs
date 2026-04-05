@@ -1080,7 +1080,7 @@ namespace pefi.http.OpenApiClientGenerator.Tests
             """;
             var source = await Execute(MinimalSpec(paths: paths));
             // 'id' is required and should appear before optional 'filter'
-            var idIndex = source!.IndexOf("int id", StringComparison.Ordinal);
+            var idIndex = source?.IndexOf("int id", StringComparison.Ordinal) ?? -1;
             var filterIndex = source.IndexOf("string? filter", StringComparison.Ordinal);
             Assert.True(idIndex >= 0, "required 'id' parameter not found");
             Assert.True(filterIndex >= 0, "optional 'filter' parameter not found");
