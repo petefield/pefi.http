@@ -44,8 +44,8 @@ jobs:
 
     - name: Set version environment variables
       run: |
-        echo "VERSION=${{ steps.gitversion.outputs.semVer }}" >> $GITHUB_ENV
-        echo "TAG=v${{ steps.gitversion.outputs.semVer }}" >> $GITHUB_ENV
+        echo "VERSION=${{ steps.gitversion.outputs.majorMinorPatch }}" >> $GITHUB_ENV
+        echo "TAG=v${{ steps.gitversion.outputs.majorMinorPatch }}" >> $GITHUB_ENV
 
     - name: Restore dependencies
       run: dotnet restore
